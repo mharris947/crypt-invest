@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic";
+
 import { MarketStats } from "@/components/market/MarketStats";
 import { PriceChart } from "@/components/PriceChart";
 import { Bitcoin } from "lucide-react";
