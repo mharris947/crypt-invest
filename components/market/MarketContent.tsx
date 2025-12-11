@@ -3,17 +3,83 @@
 import { MarketStats } from "@/components/market/MarketStats";
 import { PriceChart } from "@/components/PriceChart";
 import { Bitcoin } from "lucide-react";
-import {
-  useBitcoinMarketData,
-  useBitcoinPriceHistory,
-} from "@/hooks/useBitcoinData";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect } from "react";
+
+interface MarketDataType {
+  price: number;
+  change24h: number;
+  high24h: number;
+  low24h: number;
+  volume24h: number;
+  marketCap: number;
+}
+
+interface ChartDataType {
+  date: string;
+  price: number;
+}
 
 export function MarketContent() {
-  const { data: marketData, isLoading: isMarketLoading } =
-    useBitcoinMarketData();
-  const { data: historyData, isLoading: isHistoryLoading } =
-    useBitcoinPriceHistory(1);
+  const [marketData, setMarketData] = useState<MarketDataType | null>(null);
+  const [chartData, setChartData] = useState<ChartDataType[]>([]);
+  const [isMarketLoading, setIsMarketLoading] = useState(true);
+  const [isChartLoading, setIsChartLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsMarketLoading(true);
+        const response = await fetch(
+          "https://api.coingecko.com/api/v3/coins/bitcoin?vs_currency=usd&include_market_data=true"
+        );
+        const data = await response.json();
+
+        setMarketData({
+          price: data.market_data.current_price.usd,
+          change24h: data.market_data.price_change_percentage_24h,
+          high24h: data.market_data.high_24h.usd,
+          low24h: data.market_data.low_24h.usd,
+          volume24h: data.market_data.total_volume.usd,
+          marketCap: data.market_data.market_cap.usd,
+        });
+      } catch (error) {
+        console.error("Failed to fetch market data:", error);
+      } finally {
+        setIsMarketLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchChartData = async () => {
+      try {
+        setIsChartLoading(true);
+        const response = await fetch(
+          "https://api.coingecko.com/api/v3/coins/bitcoin/market_chart?vs_currency=usd&days=7"
+        );
+        const data = await response.json();
+
+        const formattedData = data.prices.map((price: [number, number]) => ({
+          date: new Date(price[0]).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          }),
+          price: Math.round(price[1]),
+        }));
+
+        setChartData(formattedData);
+      } catch (error) {
+        console.error("Failed to fetch chart data:", error);
+      } finally {
+        setIsChartLoading(false);
+      }
+    };
+
+    fetchChartData();
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -55,10 +121,14 @@ export function MarketContent() {
 
       {/* Price Chart */}
       <div className="mb-8">
-        {isHistoryLoading ? (
+        {isChartLoading ? (
           <Skeleton className="h-80 w-full rounded-xl" />
+        ) : chartData.length > 0 ? (
+          <PriceChart data={chartData} />
         ) : (
-          <PriceChart data={historyData || []} />
+          <div className="p-6 rounded-xl bg-card border border-border">
+            <p className="text-muted-foreground">No chart data available</p>
+          </div>
         )}
       </div>
 
